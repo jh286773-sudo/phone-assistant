@@ -1,47 +1,21 @@
+# Phone Assistant
 
-name: Build Android APK
+دستیار اندرویدی فارسی با رابط Kivy.
 
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+## قابلیت‌ها
+- دریافت فرمان صوتی و اجرای فرمان‌های پایه
+- ترجمه متن و گفتار با سرویس آنلاین MyMemory
+- باز کردن جست‌وجو و وب‌سایت در مرورگر
+- تماس و پیامک با تأیید کاربر پیش از اجرا
+- جست‌وجوی مخاطبین با مجوز صریح
+- بررسی محدود و غیرتهاجمی هدرهای امنیتی وب‌سایت‌های مجاز
+- شناسایی پایه دستگاه‌ها و پورت‌های رایج در شبکه خصوصی که کاربر مشخص می‌کند
 
-permissions:
-  contents: read
+## ساخت APK
+این پروژه با Buildozer و GitHub Actions ساخته می‌شود. از بخش Actions گردش کار «Build Android APK» را اجرا کنید و پس از موفقیت، artifact با نام `phone-assistant-debug-apk` را دریافت کنید.
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
+## مجوزها و محدودیت‌ها
+برخی قابلیت‌ها به مجوزهای اندروید و نسخه سیستم‌عامل وابسته‌اند. پاسخ‌گویی خودکار به تماس ممکن است در نسخه‌های جدید اندروید یا برخی سازندگان گوشی به‌دلیل محدودیت‌های سیستم‌عامل در دسترس نباشد. تماس و پیامک بدون تأیید کاربر ارسال نمی‌شوند.
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install Buildozer
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install buildozer "cython==0.29.33"
-
-      - name: Build APK
-        run: buildozer -v android debug
-        env:
-          BUILDOZER_WARN_ON_ROOT: "0"
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: phone-assistant-apk
-          path: bin/*.apk
-          if-no-files-found: error
-          retention-days: 7
+## حریم خصوصی
+فرمان‌های ترجمه برای سرویس ترجمه آنلاین ارسال می‌شوند. پیش از استفاده از قابلیت‌های آنلاین، از اتصال اینترنت و سیاست حریم خصوصی سرویس مقصد آگاه باشید.
