@@ -118,13 +118,13 @@ class PhoneAssistant(App):
             return
         try:
             from android.permissions import request_permissions
+            # Only dangerous permissions are requested at runtime.
+            # FOREGROUND_SERVICE* are manifest permissions, not runtime prompts.
             required = ["android.permission.RECORD_AUDIO",
-                        "android.permission.FOREGROUND_SERVICE",
-                        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
                         "android.permission.POST_NOTIFICATIONS"]
             def on_permissions(permissions, grants):
-                if not grants or not grants[0]:
-                    self.say("برای شنود دائمی باید مجوز میکروفون را فعال کنی.")
+                if not grants or not all(grants):
+                    self.say("برای شنود دائمی باید مجوز میکروفون و اعلان را فعال کنی.")
                     return
                 try:
                     from jnius import autoclass
@@ -306,36 +306,51 @@ class PhoneAssistant(App):
 
     def listen(self):
         if platform != "android":
-            self.say("تشخیص صدا فقط روی گوشی اندرویدی فعال است.")
+            self.say("تشخیص صدا فقط روی گوشی اندرویدی فعال می‌شود.")
             return
         try:
-            from jnius import autoclass
-            from android import activity
-            Intent = autoclass("android.content.Intent")
-            RecognizerIntent = autoclass("android.speech.RecognizerIntent")
-            intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                           RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "صحبت کنید")
-            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
-            if not self._activity_bound:
-                activity.bind(on_activity_result=self.on_activity_result)
-                self._activity_bound = True
-            from jnius import autoclass
-            PythonActivity = autoclass("org.kivy.android.PythonActivity")
-            PythonActivity.mActivity.startActivityForResult(intent, self.REQUEST_CODE)
-            self.say("در انتظار صدای شما...")
+            from android.permissions import request_permissions, Permission
+
+            def on_permissions(permissions, grants):
+                if not grants or not all(grants):
+                    self._translation_listen = False
+                    self.say("مجوز میکروفون داده نشد.")
+                    return
+                try:
+                    from jnius import autoclass
+                    from android import activity
+                    Intent = autoclass("android.content.Intent")
+                    RecognizerIntent = autoclass("android.speech.RecognizerIntent")
+                    intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
+                    intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "صحبت کنید")
+                    intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
+                    if not self._activity_bound:
+                        activity.bind(on_activity_result=self.on_activity_result)
+                        self._activity_bound = True
+                    PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                    PythonActivity.mActivity.startActivityForResult(intent, self.REQUEST_CODE)
+                    self.say("در انتظار صدای شما...")
+                except Exception as exc:
+                    self._translation_listen = False
+                    self.say("فعال‌سازی میکروفون ناموفق بود: " + str(exc))
+
+            request_permissions([Permission.RECORD_AUDIO], on_permissions)
         except Exception as exc:
-            self.say("فعال‌سازی میکروفون ناموفق بود: " + str(exc))
+            self._translation_listen = False
+            self.say("درخواست مجوز میکروفون ناموفق بود: " + str(exc))
 
     def on_activity_result(self, request_code, result_code, data):
-        if request_code != self.REQUEST_CODE or data is None:
+        if request_code != self.REQUEST_CODE:
             return
         try:
             from jnius import autoclass
             Activity = autoclass("android.app.Activity")
-            if result_code != Activity.RESULT_OK:
-                self.say("تشخیص صدا انجام نشد؛ دوباره تلاش کن.")
+            if result_code != Activity.RESULT_OK or data is None:
+                self._translation_listen = False
+                self.say("تشخیص صدا لغو شد یا نتیجه‌ای دریافت نشد.")
                 return
             results = data.getStringArrayListExtra(
                 "android.speech.extra.RESULTS")
