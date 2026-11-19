@@ -84,6 +84,7 @@ class PhoneAssistant(App):
         self.title = "دستیار صوتی"
         self._activity_bound = False
         self._translation_listen = False
+        self.pending_call_number = None
         return Builder.load_string(KV)
 
     def say(self, text):
@@ -151,11 +152,25 @@ class PhoneAssistant(App):
         if not command:
             self.say("لطفاً فرمانت را بگو یا بنویس.")
             return
-        numbers = re.findall(r'09\d{9}', command)
-        if "تماس" in command:
+        if self.pending_call_number:
+            answer = command.strip().lower()
+            if any(word in answer for word in ("بله", "آره", "تأیید", "تایید", "yes")):
+                number = self.pending_call_number
+                self.pending_call_number = None
+                self.place_call(number)
+            elif any(word in answer for word in ("نه", "خیر", "لغو", "cancel")):
+                self.pending_call_number = None
+                self.say("تماس لغو شد.")
+            else:
+                self.say("برای تماس بگو بله؛ برای لغو بگو نه.")
+            return
+
+        numbers = re.findall(r'(?:\+?\d[\d\s-]{7,16}\d)', command)
+        if "تماس" in command or "زنگ" in command:
             if numbers:
-                self.open_dialer(numbers[0])
-                self.say("شماره‌گیر باز شد؛ تماس را خودت تأیید کن.")
+                number = re.sub(r"[\s-]", "", numbers[0])
+                self.pending_call_number = number
+                self.say("با شماره " + number + " تماس بگیرم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
             else:
                 self.say("شماره تلفن را هم بگو.")
         elif "پیام" in command or "پیامک" in command:
@@ -235,6 +250,35 @@ class PhoneAssistant(App):
             translated = "خطا در ترجمه آنلاین: " + str(exc)
         from kivy.clock import Clock
         Clock.schedule_once(lambda dt: self.say(translated), 0)
+
+    def place_call(self, number):
+        if platform != "android":
+            self.say("برقراری تماس فقط روی گوشی اندرویدی امکان‌پذیر است.")
+            return
+        try:
+            from android.permissions import request_permissions, Permission
+            from jnius import autoclass
+
+            def on_permissions(permissions, grants):
+                if grants and all(grants):
+                    try:
+                        Intent = autoclass("android.content.Intent")
+                        Uri = autoclass("android.net.Uri")
+                        intent = Intent(Intent.ACTION_CALL)
+                        intent.setData(Uri.parse("tel:" + number))
+                        self.open_android(intent)
+                        from kivy.clock import Clock
+                        Clock.schedule_once(lambda dt: self.say("در حال برقراری تماس با " + number), 0)
+                    except Exception as exc:
+                        from kivy.clock import Clock
+                        Clock.schedule_once(lambda dt: self.say("برقراری تماس ناموفق بود: " + str(exc)), 0)
+                else:
+                    from kivy.clock import Clock
+                    Clock.schedule_once(lambda dt: self.say("مجوز تماس داده نشد؛ تماس برقرار نشد."), 0)
+
+            request_permissions([Permission.CALL_PHONE], on_permissions)
+        except Exception as exc:
+            self.say("امکان برقراری تماس وجود ندارد: " + str(exc))
 
     def open_dialer(self, number):
         if platform == "android":
