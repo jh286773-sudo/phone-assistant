@@ -387,8 +387,8 @@ class PhoneAssistant(App):
         if any(term in normalized_command for term in ("برگرد عقب", "بازگشت", "برو عقب", "صفحه قبل")):
             self.go_back()
             return
-        if any(term in normalized_command for term in ("قفلش کن", "گوشی رو قفل کن", "گوشی را قفل کن")):
-            self.say("قفل‌کردن گوشی بدون مجوز مدیر دستگاه ممکن نیست؛ از دکمه پاور استفاده کن.")
+        if any(term in normalized_command for term in ("قفلش کن", "گوشی رو قفل کن", "گوشی را قفل کن", "صفحه رو قفل کن", "صفحه را قفل کن")):
+            self.lock_device()
             return
 
         numbers = re.findall(r'(?:\+?\d[\d\s-]{7,16}\d)', command)
@@ -472,6 +472,33 @@ class PhoneAssistant(App):
             PythonActivity.mActivity.onBackPressed()
         except Exception as exc:
             self.say("بازگشت به صفحه قبل ممکن نشد: " + str(exc))
+
+    def lock_device(self):
+        """Lock the device only after the user explicitly enables Device Admin."""
+        if platform != "android":
+            self.say("قفل‌کردن گوشی فقط روی اندروید ممکن است.")
+            return
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            activity = PythonActivity.mActivity
+            Admin = autoclass("org.example.phoneassistant.AvaDeviceAdminReceiver")
+            ComponentName = autoclass("android.content.ComponentName")
+            component = ComponentName(activity, Admin)
+            policy = activity.getSystemService("device_policy")
+            if not policy.isAdminActive(component):
+                Intent = autoclass("android.content.Intent")
+                DevicePolicyManager = autoclass("android.app.admin.DevicePolicyManager")
+                intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, component)
+                intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "برای اجرای فرمان صوتی آوا، مجوز قفل صفحه لازم است.")
+                activity.startActivity(intent)
+                self.say("صفحه فعال‌سازی مدیر دستگاه باز شد. آوا را تأیید کن؛ سپس دوباره فرمان قفل را بگو.")
+                return
+            policy.lockNow()
+            self.say("گوشی قفل شد.")
+        except Exception as exc:
+            self.say("قفل‌کردن گوشی انجام نشد: " + str(exc))
 
     def scan_local_network(self, cidr):
         """Basic defensive TCP inventory of an explicitly supplied private LAN only."""
