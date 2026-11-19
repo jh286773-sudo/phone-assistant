@@ -170,7 +170,7 @@ class PhoneAssistant(App):
             if numbers:
                 number = re.sub(r"[\s-]", "", numbers[0])
                 self.pending_call_number = number
-                self.say("با شماره " + number + " تماس بگیرم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
+                self.say("تماس برقرار کنم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
             else:
                 self.say("شماره تلفن را هم بگو.")
         elif "پیام" in command or "پیامک" in command:
