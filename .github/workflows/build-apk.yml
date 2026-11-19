@@ -31,16 +31,22 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip             build-essential ccache libffi-dev libssl-dev zlib1g-dev             libncurses5-dev libncursesw5-dev libtinfo5 cmake             autoconf libtool pkg-config
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip build-essential ccache libffi-dev libssl-dev zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake autoconf libtool pkg-config
 
       - name: Install Buildozer
         run: |
           python3 -m pip install --user --upgrade pip
           python3 -m pip install --user 'Cython==0.29.36' buildozer
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify build tools
+        run: |
+          command -v git
+          command -v buildozer
+          git --version
+          buildozer --version
 
       - name: Build debug APK
-        env:
-          PATH: /home/runner/.local/bin:${{ env.PATH }}
         run: buildozer android debug
 
       - name: Upload APK
