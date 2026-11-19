@@ -170,11 +170,16 @@ class PhoneAssistant(App):
         numbers = re.findall(r'(?:\+?\d[\d\s-]{7,16}\d)', command)
         if "تماس" in command or "زنگ" in command:
             if numbers:
-                number = re.sub(r"[\s-]", "", numbers[0])
+                number = re.sub(r"[\\s-]", "", numbers[0])
                 self.pending_call_number = number
-                self.say("تماس برقرار کنم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
+                self.say("با شماره " + number + " تماس بگیرم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
             else:
-                self.say("شماره تلفن را هم بگو.")
+                name = re.sub(r"^(لطفاً\\s*)?(با|به)?\\s*", "", command)
+                name = re.sub(r"(تماس بگیرم?|زنگ بزنم?)$", "", name).strip()
+                if name:
+                    self.lookup_contact(name)
+                else:
+                    self.say("نام مخاطب یا شماره تلفن را بگو.")
         elif "پیام" in command or "پیامک" in command:
             if numbers:
                 body = command.split("بنویس", 1)[-1].strip() if "بنویس" in command else ""
@@ -339,6 +344,47 @@ class PhoneAssistant(App):
             translated = "خطا در ترجمه آنلاین: " + str(exc)
         from kivy.clock import Clock
         Clock.schedule_once(lambda dt: self.say(translated), 0)
+
+    def lookup_contact(self, name):
+        """Find a saved contact by name and request confirmation before calling."""
+        if platform != "android":
+            self.say("جست‌وجوی مخاطبین فقط روی اندروید امکان‌پذیر است.")
+            return
+        try:
+            from android.permissions import request_permissions, Permission
+            def on_permissions(permissions, grants):
+                if not grants or not all(grants):
+                    self.say("مجوز مخاطبین داده نشد.")
+                    return
+                try:
+                    from jnius import autoclass
+                    PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                    Phone = autoclass("android.provider.ContactsContract$CommonDataKinds$Phone")
+                    resolver = PythonActivity.mActivity.getContentResolver()
+                    cursor = resolver.query(Phone.CONTENT_URI, None, None, None, None)
+                    matches = []
+                    if cursor:
+                        name_col = cursor.getColumnIndex(Phone.DISPLAY_NAME)
+                        number_col = cursor.getColumnIndex(Phone.NUMBER)
+                        while cursor.moveToNext():
+                            contact_name = str(cursor.getString(name_col) or "")
+                            phone = str(cursor.getString(number_col) or "")
+                            if name.lower() in contact_name.lower() and phone:
+                                matches.append((contact_name, phone))
+                        cursor.close()
+                    if not matches:
+                        self.say("مخاطبی با این نام پیدا نکردم.")
+                    elif len(matches) > 1:
+                        self.say("چند مخاطب پیدا شد؛ لطفاً نام کامل‌تری بگو.")
+                    else:
+                        contact_name, phone = matches[0]
+                        self.pending_call_number = re.sub(r"[^+0-9]", "", phone)
+                        self.say("با " + contact_name + " تماس بگیرم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
+                except Exception as exc:
+                    self.say("خواندن مخاطبین ناموفق بود: " + str(exc))
+            request_permissions([Permission.READ_CONTACTS], on_permissions)
+        except Exception as exc:
+            self.say("دسترسی به مخاطبین ممکن نشد: " + str(exc))
 
     def place_call(self, number):
         if platform != "android":
