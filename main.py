@@ -37,6 +37,17 @@ BoxLayout:
         Button:
             text: "اجرا"
             on_release: app.run_command()
+        Button:
+            text: "🎧 ترجمه گفتار"
+            on_release: app.listen_for_translation()
+
+    Label:
+        text: "مترجم گفتاری نوبتی: صحبت کن تا ترجمه و با صدا پخش شود. برای جهت برگشت، زبان مقصد را عوض کن."
+        size_hint_y: None
+        height: "52dp"
+        halign: "center"
+        valign: "middle"
+        text_size: self.width - 20, None
 
     Label:
         text: "ترجمه آنلاین"
@@ -71,6 +82,7 @@ class PhoneAssistant(App):
     def build(self):
         self.title = "دستیار صوتی"
         self._activity_bound = False
+        self._translation_listen = False
         return Builder.load_string(KV)
 
     def say(self, text):
@@ -81,6 +93,11 @@ class PhoneAssistant(App):
                 tts.speak(text)
             except Exception:
                 pass
+
+    def listen_for_translation(self):
+        """Capture one spoken turn, translate it, and read the translation aloud."""
+        self._translation_listen = True
+        self.listen()
 
     def listen(self):
         if platform != "android":
@@ -120,7 +137,11 @@ class PhoneAssistant(App):
             if results and results.size() > 0:
                 text = str(results.get(0))
                 self.root.ids.command.text = text
-                self.run_command()
+                if self._translation_listen:
+                    self._translation_listen = False
+                    self.translate_text(speak_result=True)
+                else:
+                    self.run_command()
         except Exception as exc:
             self.say("خطا در دریافت صدا: " + str(exc))
 
@@ -152,16 +173,16 @@ class PhoneAssistant(App):
         else:
             self.say("فرمان را دریافت کردم. برای ترجمه، متن را وارد کن و زبان مقصد را بنویس.")
 
-    def translate_text(self):
+    def translate_text(self, speak_result=False):
         source = self.root.ids.command.text.strip()
         target = self.root.ids.target.text.strip().lower() or "en"
         if not source:
             self.say("متنی برای ترجمه وارد کن.")
             return
         self.say("در حال ترجمه آنلاین...")
-        threading.Thread(target=self._translate, args=(source, target), daemon=True).start()
+        threading.Thread(target=self._translate, args=(source, target, speak_result), daemon=True).start()
 
-    def _translate(self, source, target):
+    def _translate(self, source, target, speak_result=False):
         try:
             url = "https://api.mymemory.translated.net/get?q=" + quote(source) + "&langpair=autodetect%7C" + quote(target)
             response = requests.get(url, timeout=20)
@@ -173,7 +194,10 @@ class PhoneAssistant(App):
         except Exception as exc:
             translated = "خطا در ترجمه آنلاین: " + str(exc)
         from kivy.clock import Clock
-        Clock.schedule_once(lambda dt: self.say(translated), 0)
+        if speak_result:
+            Clock.schedule_once(lambda dt: self.say("ترجمه: " + translated), 0)
+        else:
+            Clock.schedule_once(lambda dt: self.say(translated), 0)
 
     def open_dialer(self, number):
         if platform == "android":
