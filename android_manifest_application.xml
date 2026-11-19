@@ -1,10 +1,14 @@
+<service
+    android:name="org.example.phoneassistant.AvaWakeService"
+    android:label="Ava voice assistant"
+    android:exported="false"
+    android:stopWithTask="false"
+    android:foregroundServiceType="microphone" />
 <receiver
     android:name="org.example.phoneassistant.AvaDeviceAdminReceiver"
-    android:label="Ava voice assistant"
+    android:label="Ava"
     android:permission="android.permission.BIND_DEVICE_ADMIN"
     android:exported="true">
     <meta-data android:name="android.app.device_admin" android:resource="@xml/ava_device_admin" />
-    <intent-filter>
-        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-    </intent-filter>
+    <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
 </receiver>

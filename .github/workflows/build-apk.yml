@@ -1,0 +1,77 @@
+name: Build Ava Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ava-clean-rewrite
+    paths:
+      - 'main.py'
+      - 'core/**'
+      - 'android_src/**'
+      - 'android_res/**'
+      - 'android_manifest_application.xml'
+      - 'buildozer.spec'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK and accept licenses
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0 build-tools;37.0.0'
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip build-essential ccache libffi-dev libssl-dev zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake autoconf libtool pkg-config
+
+      - name: Install Buildozer
+        run: |
+          python3 -m pip install --user --upgrade pip
+          python3 -m pip install --user 'Cython==0.29.36' buildozer
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROIDNDK=$ANDROID_HOME/ndk/$(ls "$ANDROID_HOME/ndk" | sort -V | tail -n 1)" >> "$GITHUB_ENV"
+
+      - name: Add legacy sdkmanager path for Buildozer
+        run: |
+          mkdir -p "$ANDROID_HOME/tools/bin"
+          ln -sf "$(command -v sdkmanager)" "$ANDROID_HOME/tools/bin/sdkmanager"
+          test -x "$ANDROID_HOME/tools/bin/sdkmanager"
+
+      - name: Verify build tools
+        run: |
+          command -v git
+          command -v buildozer
+          command -v sdkmanager
+          "$ANDROID_HOME/tools/bin/sdkmanager" --version
+          git --version
+          buildozer --version
+          sdkmanager --list_installed
+
+      - name: Build debug APK
+        run: buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ava-debug-apk
+          path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 14

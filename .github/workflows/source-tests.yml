@@ -1,0 +1,29 @@
+name: Ava source tests
+on:
+  push:
+    branches: [ava-clean-rewrite]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install requests
+      - name: Compile Python sources
+        run: python -m compileall -q main.py core tests
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Validate Android XML
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          ET.parse("android_res/xml/ava_device_admin.xml")
+          ET.fromstring("<manifest xmlns:android='http://schemas.android.com/apk/res/android'><application>" + open("android_manifest_application.xml", encoding="utf-8").read() + "</application></manifest>")
+          print("Android XML files: OK")
+          PY

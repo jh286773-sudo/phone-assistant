@@ -8,30 +8,25 @@ import android.os.Build;
 import android.telephony.TelephonyManager;
 
 public final class IncomingCallMonitor extends BroadcastReceiver {
-    public interface Callback {
-        void onIncomingCall();
-        void onCallEnded();
-    }
-
+    public interface Callback { void onIncomingCall(); void onCallEnded(); }
     private static IncomingCallMonitor receiver;
     private static Callback callback;
-    private boolean ringing = false;
+    private boolean ringing;
 
     public static synchronized void register(Context context, Callback listener) {
         if (receiver != null) return;
         callback = listener;
         receiver = new IncomingCallMonitor();
         IntentFilter filter = new IntentFilter(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.getApplicationContext().registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
-        } else {
-            context.getApplicationContext().registerReceiver(receiver, filter);
-        }
+        Context app = context.getApplicationContext();
+        if (Build.VERSION.SDK_INT >= 33) app.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
+        else app.registerReceiver(receiver, filter);
     }
 
     public static synchronized void unregister(Context context) {
         if (receiver == null) return;
-        try { context.getApplicationContext().unregisterReceiver(receiver); } catch (Exception ignored) {}
+        try { context.getApplicationContext().unregisterReceiver(receiver); }
+        catch (IllegalArgumentException ignored) { }
         receiver = null;
         callback = null;
     }
@@ -43,8 +38,8 @@ public final class IncomingCallMonitor extends BroadcastReceiver {
             ringing = true;
             Callback current = callback;
             if (current != null) current.onIncomingCall();
-        } else if ((TelephonyManager.EXTRA_STATE_IDLE.equals(state)
-                || TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) && ringing) {
+        } else if ((TelephonyManager.EXTRA_STATE_IDLE.equals(state) ||
+                    TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) && ringing) {
             ringing = false;
             Callback current = callback;
             if (current != null) current.onCallEnded();
