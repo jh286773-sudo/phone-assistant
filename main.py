@@ -34,8 +34,9 @@ BoxLayout:
         height: "48dp"
         spacing: 8
         Button:
-            text: "🎙 صحبت کن"
-            on_release: app.listen()
+            id: always_listen
+            text: "🎙 شنود دائمی: خاموش"
+            on_release: app.toggle_always_listening()
         Button:
             text: "اجرا"
             on_release: app.run_command()
@@ -85,6 +86,9 @@ class PhoneAssistant(App):
         self.title = "دستیار صوتی"
         self._activity_bound = False
         self._translation_listen = False
+        self._always_listening = False
+        self._voice_socket = None
+        self._voice_socket_thread = None
         self.pending_call_number = None
         self._incoming_call_pending = False
         self._call_callback = None
@@ -92,6 +96,92 @@ class PhoneAssistant(App):
 
     def on_start(self):
         self.start_incoming_call_monitor()
+
+    def toggle_always_listening(self):
+        if self._always_listening:
+            self.stop_always_listening()
+        else:
+            self.start_always_listening()
+
+    def start_always_listening(self):
+        if platform != "android":
+            self.say("شنود دائمی فقط روی گوشی اندرویدی فعال می‌شود.")
+            return
+        try:
+            from android.permissions import request_permissions
+            required = ["android.permission.RECORD_AUDIO",
+                        "android.permission.FOREGROUND_SERVICE",
+                        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+                        "android.permission.POST_NOTIFICATIONS"]
+            def on_permissions(permissions, grants):
+                if not grants or not grants[0]:
+                    self.say("برای شنود دائمی باید مجوز میکروفون را فعال کنی.")
+                    return
+                try:
+                    from jnius import autoclass
+                    PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                    Service = autoclass("org.example.phoneassistant.ServiceVoicelistener")
+                    Service.start(PythonActivity.mActivity, "")
+                    self._always_listening = True
+                    self.root.ids.always_listen.text = "🎙 شنود دائمی: روشن"
+                    self._start_voice_receiver()
+                    self.say("شنود دائمی روشن شد. اعلان فعال‌بودن میکروفون را می‌بینی.")
+                except Exception as exc:
+                    self.say("راه‌اندازی شنود دائمی ناموفق بود: " + str(exc))
+            request_permissions(required, on_permissions)
+        except Exception as exc:
+            self.say("درخواست مجوز میکروفون ناموفق بود: " + str(exc))
+
+    def stop_always_listening(self):
+        if platform == "android":
+            try:
+                from jnius import autoclass
+                PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                Service = autoclass("org.example.phoneassistant.ServiceVoicelistener")
+                Service.stop(PythonActivity.mActivity)
+            except Exception as exc:
+                self.say("توقف سرویس شنود ناموفق بود: " + str(exc))
+                return
+        self._always_listening = False
+        self.root.ids.always_listen.text = "🎙 شنود دائمی: خاموش"
+        if self._voice_socket:
+            try:
+                self._voice_socket.close()
+            except Exception:
+                pass
+            self._voice_socket = None
+        self.say("شنود دائمی خاموش شد.")
+
+    def _start_voice_receiver(self):
+        if self._voice_socket is not None:
+            return
+        try:
+            receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            receiver.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            receiver.bind(("127.0.0.1", 8765))
+            receiver.settimeout(1.0)
+            self._voice_socket = receiver
+            def receive():
+                while self._always_listening and self._voice_socket is receiver:
+                    try:
+                        payload, _ = receiver.recvfrom(8192)
+                        phrase = payload.decode("utf-8", "ignore").strip()
+                        if phrase:
+                            from kivy.clock import Clock
+                            Clock.schedule_once(lambda dt, value=phrase: self._handle_background_speech(value), 0)
+                    except socket.timeout:
+                        continue
+                    except OSError:
+                        break
+            self._voice_socket_thread = threading.Thread(target=receive, daemon=True)
+            self._voice_socket_thread.start()
+        except Exception as exc:
+            self.say("دریافت فرمان صوتی ناموفق بود: " + str(exc))
+
+    def _handle_background_speech(self, phrase):
+        self.root.ids.command.text = phrase
+        self.say("شنیدم: " + phrase)
+        self.run_command()
 
     def start_incoming_call_monitor(self):
         if platform != "android":
