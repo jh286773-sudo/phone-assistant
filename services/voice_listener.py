@@ -113,6 +113,7 @@ def start_recognition():
             return
         intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         recognizer.startListening(intent)
