@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -130,6 +131,7 @@ public final class AvaWakeService extends Service {
             int length = 8;
             if (at < 0) { at = normalized.indexOf("آوا"); length = 3; }
             if (at >= 0) {
+                wakeScreen();
                 String remainder = phrase.substring(Math.min(phrase.length(), at + length)).trim();
                 if (remainder.isEmpty()) {
                     awaitingCommand = true;
@@ -146,6 +148,23 @@ public final class AvaWakeService extends Service {
             saveCommand(phrase);
             updateNotification("فرمان صوتی دریافت شد؛ برای اجرا اعلان را لمس کن.");
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void wakeScreen() {
+        try {
+            PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+            if (power == null) return;
+            PowerManager.WakeLock lock = power.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK
+                            | PowerManager.ACQUIRE_CAUSES_WAKEUP
+                            | PowerManager.ON_AFTER_RELEASE,
+                    "Ava:WakeScreen");
+            lock.acquire(5000L);
+            handler.postDelayed(() -> {
+                try { if (lock.isHeld()) lock.release(); } catch (RuntimeException ignored) { }
+            }, 5000L);
+        } catch (Exception ignored) { }
     }
 
     private void saveCommand(String command) {
