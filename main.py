@@ -164,7 +164,14 @@ class AvaApp(App):
                     self.say("شنود فعال شد؛ اعلان آوا نمایش داده می‌شود.")
                 except Exception as exc:
                     self.say("شروع سرویس ناموفق بود: " + str(exc))
-            request_permissions([Permission.RECORD_AUDIO], granted)
+            permissions = [Permission.RECORD_AUDIO]
+            try:
+                from jnius import autoclass
+                if int(autoclass("android.os.Build$VERSION").SDK_INT) >= 33:
+                    permissions.append("android.permission.POST_NOTIFICATIONS")
+            except Exception:
+                pass
+            request_permissions(permissions, granted)
         except Exception as exc:
             self.say("درخواست مجوز ناموفق بود: " + str(exc))
 
