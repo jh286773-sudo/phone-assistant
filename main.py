@@ -7,7 +7,6 @@ from datetime import datetime
 from urllib.parse import quote
 
 import requests
-from langdetect import detect
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.utils import platform
@@ -400,10 +399,19 @@ class PhoneAssistant(App):
             daemon=True
         ).start()
 
+    @staticmethod
+    def detect_language(text):
+        """Lightweight script-based language detection; avoids a native package."""
+        if re.search(r"[\\u0600-\\u06FF]", text):
+            return "fa" if re.search(r"[\\u067E\\u0686\\u0698\\u06AF]", text) or re.search(r"[\\u06A9\\u06CC]", text) else "ar"
+        if re.search(r"[\\u0400-\\u04FF]", text):
+            return "ru"
+        return "en"
+
     def _translate(self, source, phone_language, other_language, speak_result=False):
         try:
             try:
-                source_language = detect(source).lower().split("-")[0]
+                source_language = self.detect_language(source)
             except Exception:
                 source_language = "unknown"
 
