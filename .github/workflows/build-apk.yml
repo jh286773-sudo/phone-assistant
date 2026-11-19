@@ -36,6 +36,28 @@ jobs:
         shell: bash {0}
         run: |
           set +o pipefail
+          # First pass initializes python-for-android and its build directory.
+          yes | buildozer -v android debug || true
+
+          # python-for-android's automatic latest-pip upgrade currently breaks
+          # its build venv on Python 3.14. Pin the venv pip to a compatible release.
+          P4A_BUILD=".buildozer/android/platform/python-for-android/pythonforandroid/build.py"
+          if [ ! -f "$P4A_BUILD" ]; then
+            echo "python-for-android build.py was not created; cannot apply pip compatibility fix."
+            exit 1
+          fi
+          python - <<'PY'
+          from pathlib import Path
+          path = Path(".buildozer/android/platform/python-for-android/pythonforandroid/build.py")
+          source = path.read_text()
+          old = "source venv/bin/activate && pip install -U pip"
+          new = "source venv/bin/activate && pip install pip==25.3"
+          if old not in source:
+              raise SystemExit("Expected python-for-android pip upgrade command was not found")
+          path.write_text(source.replace(old, new))
+          print("Pinned python-for-android build venv pip to 25.3")
+          PY
+
           yes | buildozer -v android debug
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
