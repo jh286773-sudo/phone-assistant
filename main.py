@@ -211,8 +211,10 @@ class PhoneAssistant(App):
             # Translate between the phone language and the configured second language.
             if source_language == other_language.split("-")[0]:
                 destination_language = phone_language
-            else:
+            elif source_language == phone_language:
                 destination_language = other_language
+            else:
+                destination_language = phone_language
 
             source_pair = "autodetect" if source_language == "unknown" else source_language
             if source_pair != "autodetect" and source_pair == destination_language:
