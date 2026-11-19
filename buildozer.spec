@@ -12,5 +12,6 @@ requirements = python3,kivy,requests,plyer,pyjnius
 orientation = portrait
 android.permissions = INTERNET,RECORD_AUDIO,CALL_PHONE,READ_CONTACTS,READ_PHONE_STATE,ANSWER_PHONE_CALLS,FOREGROUND_SERVICE,FOREGROUND_SERVICE_MICROPHONE,POST_NOTIFICATIONS
 android.api = 35
+android.sdk_path = /usr/local/lib/android/sdk
 android.minapi = 26
 p4a.branch = develop
