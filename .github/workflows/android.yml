@@ -44,6 +44,10 @@ jobs:
         shell: bash
         run: |
           set +o pipefail
+          # python-for-android upgrades pip inside its temporary build venv.
+          # Keep pip below 26: pip 26 currently breaks this p4a install path.
+          printf 'pip<26\n' > "$RUNNER_TEMP/pip-constraints.txt"
+          export PIP_CONSTRAINT="$RUNNER_TEMP/pip-constraints.txt"
           yes | buildozer -v android debug
 
       - name: Verify APK output
