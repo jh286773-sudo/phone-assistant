@@ -5,6 +5,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 import requests
+from langdetect import detect
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.utils import platform
@@ -42,7 +43,7 @@ BoxLayout:
             on_release: app.listen_for_translation()
 
     Label:
-        text: "مترجم گفتاری نوبتی: صحبت کن تا ترجمه و با صدا پخش شود. برای جهت برگشت، زبان مقصد را عوض کن."
+        text: "ترجمه خودکار دوطرفه: زبان گوشی و زبان دوم را یک‌بار تنظیم کن؛ مترجم جهت ترجمه را از روی گفتار تشخیص می‌دهد."
         size_hint_y: None
         height: "52dp"
         halign: "center"
@@ -61,7 +62,7 @@ BoxLayout:
         TextInput:
             id: target
             text: "en"
-            hint_text: "کد زبان مقصد مثل en، fa، tr"
+            hint_text: "زبان دوم مثل en، tr، ar"
             multiline: False
         Button:
             text: "ترجمه"
@@ -70,7 +71,7 @@ BoxLayout:
 
     Label:
         id: result
-        text: "آماده‌ام. برای فرمان صوتی دکمه میکروفون را بزن."
+        text: "آماده‌ام. زبان گوشی و زبان دوم به‌صورت خودکار در دو جهت ترجمه می‌شوند."
         halign: "center"
         valign: "middle"
         text_size: self.width - 20, None
@@ -173,31 +174,65 @@ class PhoneAssistant(App):
         else:
             self.say("فرمان را دریافت کردم. برای ترجمه، متن را وارد کن و زبان مقصد را بنویس.")
 
+    def device_language(self):
+        """Return the phone's language; Persian is the desktop/test fallback."""
+        if platform == "android":
+            try:
+                from jnius import autoclass
+                return str(autoclass("java.util.Locale").getDefault().getLanguage()).lower()
+            except Exception:
+                pass
+        return "fa"
+
     def translate_text(self, speak_result=False):
         source = self.root.ids.command.text.strip()
-        target = self.root.ids.target.text.strip().lower() or "en"
+        other_language = self.root.ids.target.text.strip().lower() or "en"
         if not source:
             self.say("متنی برای ترجمه وارد کن.")
             return
-        self.say("در حال ترجمه آنلاین...")
-        threading.Thread(target=self._translate, args=(source, target, speak_result), daemon=True).start()
+        if not re.fullmatch(r"[a-z]{2,3}(-[a-z]{2})?", other_language):
+            self.say("کد زبان دوم معتبر نیست؛ مثل en یا tr وارد کن.")
+            return
+        phone_language = self.device_language()
+        self.say("در حال تشخیص زبان و ترجمه آنلاین...")
+        threading.Thread(
+            target=self._translate,
+            args=(source, phone_language, other_language, speak_result),
+            daemon=True
+        ).start()
 
-    def _translate(self, source, target, speak_result=False):
+    def _translate(self, source, phone_language, other_language, speak_result=False):
         try:
-            url = "https://api.mymemory.translated.net/get?q=" + quote(source) + "&langpair=autodetect%7C" + quote(target)
-            response = requests.get(url, timeout=20)
-            response.raise_for_status()
-            data = response.json()
-            translated = data.get("responseData", {}).get("translatedText", "")
-            if not translated:
-                translated = "ترجمه‌ای دریافت نشد؛ کد زبان مقصد را بررسی کن."
+            try:
+                source_language = detect(source).lower().split("-")[0]
+            except Exception:
+                source_language = "unknown"
+
+            # Translate between the phone language and the configured second language.
+            if source_language == other_language.split("-")[0]:
+                destination_language = phone_language
+            else:
+                destination_language = other_language
+
+            source_pair = "autodetect" if source_language == "unknown" else source_language
+            if source_pair != "autodetect" and source_pair == destination_language:
+                translated = "زبان گفتار با زبان مقصد یکسان است."
+            else:
+                langpair = source_pair + "|" + destination_language
+                url = ("https://api.mymemory.translated.net/get?q=" + quote(source)
+                       + "&langpair=" + quote(langpair, safe="|"))
+                response = requests.get(url, timeout=25)
+                response.raise_for_status()
+                data = response.json()
+                result = data.get("responseData", {}).get("translatedText", "")
+                if not result:
+                    translated = "ترجمه‌ای دریافت نشد؛ این جفت‌زبان ممکن است پشتیبانی نشود."
+                else:
+                    translated = "ترجمه (" + source_pair + " به " + destination_language + "): " + result
         except Exception as exc:
             translated = "خطا در ترجمه آنلاین: " + str(exc)
         from kivy.clock import Clock
-        if speak_result:
-            Clock.schedule_once(lambda dt: self.say("ترجمه: " + translated), 0)
-        else:
-            Clock.schedule_once(lambda dt: self.say(translated), 0)
+        Clock.schedule_once(lambda dt: self.say(translated), 0)
 
     def open_dialer(self, number):
         if platform == "android":
