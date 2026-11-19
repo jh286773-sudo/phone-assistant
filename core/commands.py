@@ -26,9 +26,9 @@ def parse_command(text):
     low = command.lower()
     if not command:
         return {"action": "empty", "value": ""}
-    if any(w in low for w in YES):
+    if low in YES:
         return {"action": "yes", "value": ""}
-    if any(w in low for w in NO):
+    if low in NO:
         return {"action": "no", "value": ""}
     if any(x in command for x in ("پاسخ بده", "جواب بده", "تماس را جواب", "تماس رو جواب")):
         return {"action": "answer_call", "value": ""}
