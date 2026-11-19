@@ -378,6 +378,19 @@ class PhoneAssistant(App):
                 self.say("برای تماس بگو بله؛ برای لغو بگو نه.")
             return
 
+        command = re.sub(r"^(?:سلام\s+)?آوا[،, ]*", "", command).strip()
+        self.root.ids.command.text = command
+        normalized_command = command.replace("ي", "ی").replace("ك", "ک").strip()
+        if any(term in normalized_command for term in ("صفحه رو ببند", "صفحه را ببند", "برنامه رو ببند", "برنامه را ببند", "برو صفحه اصلی", "برو به صفحه اصلی", "صفحه اصلی")):
+            self.send_app_to_background()
+            return
+        if any(term in normalized_command for term in ("برگرد عقب", "بازگشت", "برو عقب", "صفحه قبل")):
+            self.go_back()
+            return
+        if any(term in normalized_command for term in ("قفلش کن", "گوشی رو قفل کن", "گوشی را قفل کن")):
+            self.say("قفل‌کردن گوشی بدون مجوز مدیر دستگاه ممکن نیست؛ از دکمه پاور استفاده کن.")
+            return
+
         numbers = re.findall(r'(?:\+?\d[\d\s-]{7,16}\d)', command)
         if "تماس" in command or "زنگ" in command:
             if numbers:
@@ -435,6 +448,30 @@ class PhoneAssistant(App):
             self.say("سلام! آماده‌ام.")
         else:
             self.say("فرمان را دریافت کردم. برای ترجمه، متن را وارد کن و زبان مقصد را بنویس.")
+
+    def send_app_to_background(self):
+        """Hide the app while keeping the foreground voice service alive."""
+        if platform != "android":
+            self.say("این فرمان فقط روی گوشی اندرویدی اجرا می‌شود.")
+            return
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            PythonActivity.mActivity.moveTaskToBack(True)
+        except Exception as exc:
+            self.say("بستن صفحه برنامه ممکن نشد: " + str(exc))
+
+    def go_back(self):
+        """Perform Android Back without stopping the voice-listener service."""
+        if platform != "android":
+            self.say("این فرمان فقط روی گوشی اندرویدی اجرا می‌شود.")
+            return
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            PythonActivity.mActivity.onBackPressed()
+        except Exception as exc:
+            self.say("بازگشت به صفحه قبل ممکن نشد: " + str(exc))
 
     def scan_local_network(self, cidr):
         """Basic defensive TCP inventory of an explicitly supplied private LAN only."""
