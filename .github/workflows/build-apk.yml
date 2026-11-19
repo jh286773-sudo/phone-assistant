@@ -39,8 +39,9 @@ jobs:
           # First pass initializes python-for-android and its build directory.
           yes | buildozer -v android debug || true
 
-          # python-for-android's automatic latest-pip upgrade currently breaks
-          # its build venv on Python 3.14. Pin the venv pip to a compatible release.
+          # The target Python site-packages on PYTHONPATH contains a pip build
+          # incompatible with host Python 3.14. Keep PYTHONPATH out of pip's
+          # own upgrade/install commands inside python-for-android.
           P4A_BUILD=".buildozer/android/platform/python-for-android/pythonforandroid/build.py"
           if [ ! -f "$P4A_BUILD" ]; then
             echo "python-for-android build.py was not created; cannot apply pip compatibility fix."
@@ -50,12 +51,18 @@ jobs:
           from pathlib import Path
           path = Path(".buildozer/android/platform/python-for-android/pythonforandroid/build.py")
           source = path.read_text()
-          old = "source venv/bin/activate && pip install -U pip"
-          new = "source venv/bin/activate && pip install pip==25.3"
-          if old not in source:
-              raise SystemExit("Expected python-for-android pip upgrade command was not found")
-          path.write_text(source.replace(old, new))
-          print("Pinned python-for-android build venv pip to 25.3")
+          replacements = {
+              "source venv/bin/activate && pip install -U pip":
+                  "source venv/bin/activate && env -u PYTHONPATH pip install pip==25.3",
+              "venv/bin/pip install Cython":
+                  "env -u PYTHONPATH venv/bin/pip install Cython",
+          }
+          for old, new in replacements.items():
+              if old not in source:
+                  raise SystemExit(f"Expected python-for-android command was not found: {old}")
+              source = source.replace(old, new)
+          path.write_text(source)
+          print("Applied python-for-android pip/PYTHONPATH compatibility fix")
           PY
 
           yes | buildozer -v android debug
