@@ -8,7 +8,7 @@ from kivy.lang import Builder
 from kivy.utils import platform
 from kivy.clock import Clock
 
-from core.commands import parse_command
+from core.commands import parse_command, normalize
 from core.translation import translate
 from core.crypto import price
 
@@ -111,8 +111,13 @@ class AvaApp(App):
         if platform != "android":
             return
         try:
-            phrase = self._activity().getIntent().getStringExtra("ava_command")
+            activity = self._activity()
+            intent = activity.getIntent()
+            phrase = intent.getStringExtra("ava_command")
             if phrase:
+                intent.removeExtra("ava_command")
+                activity.setIntent(intent)
+                activity.getSharedPreferences("ava_wake", 0).edit().remove("pending_command").apply()
                 self.root.ids.command.text = str(phrase)
                 self.execute_command()
         except Exception:

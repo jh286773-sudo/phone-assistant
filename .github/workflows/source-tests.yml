@@ -1,7 +1,7 @@
 name: Ava source tests
 on:
   push:
-    branches: [ava-clean-rewrite]
+    branches: [ava-clean-rewrite, ava-native-rewrite]
   pull_request:
     branches: [main]
   workflow_dispatch:

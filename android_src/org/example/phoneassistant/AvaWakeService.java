@@ -26,6 +26,7 @@ public final class AvaWakeService extends Service {
     private SpeechRecognizer recognizer;
     private boolean awaitingCommand = false;
     private boolean running = false;
+    private String pendingCommand = null;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -62,6 +63,7 @@ public final class AvaWakeService extends Service {
         PendingIntent pending = null;
         if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            if (pendingCommand != null) launch.putExtra("ava_command", pendingCommand);
             pending = PendingIntent.getActivity(this, 731, launch,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
@@ -131,8 +133,8 @@ public final class AvaWakeService extends Service {
                 String remainder = phrase.substring(Math.min(phrase.length(), at + length)).trim();
                 if (remainder.isEmpty()) {
                     awaitingCommand = true;
-                    updateNotification("آوا بیدار شد؛ فرمان را بگو و اعلان را لمس کن.");
-                    saveCommand("");
+                    pendingCommand = null;
+                    updateNotification("آوا بیدار شد؛ حالا فرمانت را بگو.");
                 } else {
                     awaitingCommand = false;
                     saveCommand(remainder);
@@ -147,16 +149,11 @@ public final class AvaWakeService extends Service {
     }
 
     private void saveCommand(String command) {
+        if (command == null || command.trim().isEmpty()) return;
+        pendingCommand = command.trim();
         SharedPreferences prefs = getSharedPreferences("ava_wake", MODE_PRIVATE);
-        prefs.edit().putString("pending_command", command).apply();
-        Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        if (launch != null) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            launch.putExtra("ava_command", command);
-            PendingIntent pending = PendingIntent.getActivity(this, 732, launch,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            updateNotification("آوا آماده اجرای فرمان است؛ برای بازکردن لمس کن.");
-        }
+        prefs.edit().putString("pending_command", pendingCommand).apply();
+        updateNotification("فرمان دریافت شد؛ برای اجرای آن اعلان آوا را لمس کن.");
     }
 
     private void scheduleRestart(long delay) {

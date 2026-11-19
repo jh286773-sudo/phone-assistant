@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - ava-clean-rewrite
+      - ava-native-rewrite
     paths:
       - 'main.py'
       - 'core/**'
