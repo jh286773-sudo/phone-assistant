@@ -8,6 +8,10 @@ on:
       - "**.py"
       - "buildozer.spec"
       - "android_src/**/*.java"
+      - "android_res/**/*.xml"
+      - "android_manifest_application.xml"
+      - "services/**/*.py"
+      - "security_audit.py"
       - ".github/workflows/android.yml"
 
 concurrency:
@@ -44,11 +48,15 @@ jobs:
         shell: bash
         run: |
           set +o pipefail
+          # Remove stale APKs so verification cannot pass on an old build.
+          rm -f bin/*.apk
           # python-for-android upgrades pip inside its temporary build venv.
           # Keep pip below 26: pip 26 currently breaks this p4a install path.
           printf 'pip<26\n' > "$RUNNER_TEMP/pip-constraints.txt"
           export PIP_CONSTRAINT="$RUNNER_TEMP/pip-constraints.txt"
           yes | buildozer -v android debug
+          build_status=${PIPESTATUS[1]}
+          exit "$build_status"
 
       - name: Verify APK output
         run: |
