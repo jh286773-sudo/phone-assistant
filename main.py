@@ -198,6 +198,12 @@ class PhoneAssistant(App):
                 self.say("در حال باز کردن سایت در مرورگر...")
             else:
                 self.say("نام سایت یا نشانی آن را بگو.")
+        elif "بررسی امنیت سایت" in command or "تست امنیت سایت" in command:
+            target = re.sub(r"^(بررسی امنیت سایت|تست امنیت سایت)\s*", "", command).strip()
+            if not target:
+                self.say("دامنه وب‌سایتی را وارد کن که مالک آن هستی یا اجازه بررسی‌اش را داری.")
+            else:
+                self.audit_website(target)
         elif "اسکن شبکه" in command or "بررسی شبکه" in command or "بررسی امنیت" in command:
             # Defensive scan limited to a private LAN CIDR explicitly supplied by the user.
             match = re.search(r"(?:اسکن شبکه|بررسی شبکه|بررسی امنیت)\\s+([0-9.]+/\\d{1,2})", command)
@@ -258,6 +264,19 @@ class PhoneAssistant(App):
             report = "در پورت‌های رایج بررسی‌شده، مورد بازی پیدا نشد."
         from kivy.clock import Clock
         Clock.schedule_once(lambda dt: self.say(report), 0)
+
+    def audit_website(self, target):
+        """Run non-invasive HTTP/TLS posture checks for an authorized website."""
+        self.say("بررسی غیرتهاجمی امنیت وب‌سایت شروع شد...")
+        def worker():
+            try:
+                from security_audit import audit_website
+                report = audit_website(target)
+            except Exception as exc:
+                report = "بررسی انجام نشد: " + str(exc)
+            from kivy.clock import Clock
+            Clock.schedule_once(lambda dt: self.say(report), 0)
+        threading.Thread(target=worker, daemon=True).start()
 
     def device_language(self):
         """Return the phone's language; Persian is the desktop/test fallback."""
