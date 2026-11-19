@@ -148,7 +148,7 @@ class PhoneAssistant(App):
             self.say("خطا در دریافت صدا: " + str(exc))
 
     def run_command(self):
-        command = self.root.ids.command.text.strip()
+        command = self.root.ids.command.text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
         if not command:
             self.say("لطفاً فرمانت را بگو یا بنویس.")
             return
