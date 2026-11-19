@@ -33,7 +33,9 @@ jobs:
           python -m pip install buildozer "cython==0.29.33"
 
       - name: Build APK
+        shell: bash {0}
         run: |
+          set +o pipefail
           yes | buildozer -v android debug
         env:
           BUILDOZER_WARN_ON_ROOT: "0"
