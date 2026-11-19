@@ -96,6 +96,15 @@ class PhoneAssistant(App):
 
     def on_start(self):
         self.start_incoming_call_monitor()
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            if PythonActivity.mActivity.getIntent().getBooleanExtra("wake_word_triggered", False):
+                self._always_listening = True
+                self._start_voice_receiver()
+                self.say("بله، گوش می‌دهم. فرمانت را بگو.")
+        except Exception:
+            pass
 
     def toggle_always_listening(self):
         if self._always_listening:
@@ -179,9 +188,32 @@ class PhoneAssistant(App):
             self.say("دریافت فرمان صوتی ناموفق بود: " + str(exc))
 
     def _handle_background_speech(self, phrase):
+        if phrase == "__WAKE__":
+            self._always_listening = True
+            self.root.ids.always_listen.text = "🎙 شنود دائمی: روشن"
+            self._bring_app_to_front()
+            self.say("بله، گوش می‌دهم. فرمانت را بگو.")
+            return
         self.root.ids.command.text = phrase
         self.say("شنیدم: " + phrase)
         self.run_command()
+
+    def _bring_app_to_front(self):
+        if platform != "android":
+            return
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            activity = PythonActivity.mActivity
+            Intent = autoclass("android.content.Intent")
+            intent = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName())
+            if intent is None:
+                return
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            intent.putExtra("wake_word_triggered", True)
+            activity.startActivity(intent)
+        except Exception as exc:
+            self.say("اندروید اجازه بازکردن خودکار صفحه را نداد؛ اعلان دستیار را لمس کن. " + str(exc))
 
     def start_incoming_call_monitor(self):
         if platform != "android":
