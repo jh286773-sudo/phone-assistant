@@ -58,6 +58,7 @@ class Listener(PythonJavaClass):
         main_handler.postDelayed(RestartTask(), 1400)
     @java_method("(Landroid/os/Bundle;)V")
     def onResults(self, results):
+        global awaiting_command
         try:
             values = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if values and values.size() > 0:
@@ -65,12 +66,17 @@ class Listener(PythonJavaClass):
                 if phrase:
                     normalized = phrase.lower().replace("‌", " ").replace("ي", "ی").replace("ك", "ک")
                     normalized = " ".join(normalized.split())
-                    wake_words = ("سلام دستیار", "دستیار", "سلام دستیاره")
+                    wake_words = ("سلام آوا", "آوا")
                     if not awaiting_command:
-                        if any(word in normalized for word in wake_words):
+                        matched_wake = next((word for word in wake_words if word in normalized), None)
+                        if matched_wake:
                             awaiting_command = True
                             udp.sendto(b"__WAKE__", ("127.0.0.1", 8765))
                             launch_assistant()
+                            remainder = normalized.split(matched_wake, 1)[1].strip(" ،,")
+                            if remainder:
+                                awaiting_command = False
+                                udp.sendto(remainder.encode("utf-8"), ("127.0.0.1", 8765))
                     else:
                         awaiting_command = False
                         udp.sendto(phrase.encode("utf-8"), ("127.0.0.1", 8765))
