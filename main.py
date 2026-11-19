@@ -13,62 +13,175 @@ from core.translation import translate
 from core.crypto import price
 
 KV = """
-BoxLayout:
-    orientation: "vertical"
-    padding: "12dp"
-    spacing: "7dp"
-    Label:
-        text: "آوا | دستیار صوتی"
-        font_size: "23sp"
-        size_hint_y: None
-        height: "42dp"
-    TextInput:
-        id: command
-        hint_text: "فرمان را بنویس یا با صدا بگو…"
-        multiline: False
-        size_hint_y: None
-        height: "46dp"
-    BoxLayout:
-        size_hint_y: None
-        height: "44dp"
-        spacing: "6dp"
-        Button:
-            text: "اجرا"
-            on_release: app.execute_command()
-        Button:
-            text: "🎙 شنیدن"
-            on_release: app.listen_once()
-        Button:
-            id: wake_button
-            text: "شنود دائمی: روشن/خاموش"
-            on_release: app.toggle_wake_service()
-    BoxLayout:
-        size_hint_y: None
-        height: "40dp"
-        spacing: "6dp"
-        TextInput:
-            id: target_lang
-            text: "en"
-            hint_text: "زبان دوم (en/tr/ar)"
-            multiline: False
-        Button:
-            text: "ترجمه متن"
-            on_release: app.translate_current()
-        Button:
-            text: "ترجمه گفتار"
-            on_release: app.listen_for_translation()
-    Label:
-        id: status
-        text: "آماده‌ام. برای فعال‌سازی شنود دائمی، مجوز میکروفون را بده."
-        halign: "center"
-        valign: "middle"
-        text_size: self.width - 16, None
-    Label:
-        id: hint
-        text: "تماس و پیامک پس از تأیید شما باز می‌شوند؛ ارسال نهایی با خود شماست."
-        font_size: "12sp"
-        halign: "center"
-        text_size: self.width - 16, None
+#:import dp kivy.metrics.dp
+<Label>:
+    font_name: "/system/fonts/NotoNaskhArabicUI-Regular.ttf"
+    color: 0.91, 0.95, 1, 1
+<Button>:
+    font_name: "/system/fonts/NotoNaskhArabicUI-Regular.ttf"
+    color: 1, 1, 1, 1
+    background_normal: ""
+    background_down: ""
+    background_color: 0.10, 0.48, 0.72, 1
+<TextInput>:
+    font_name: "/system/fonts/NotoNaskhArabicUI-Regular.ttf"
+    foreground_color: 0.95, 0.98, 1, 1
+    hint_text_color: 0.48, 0.61, 0.72, 1
+    cursor_color: 0.20, 0.85, 1, 1
+    background_normal: ""
+    background_active: ""
+    background_color: 0.055, 0.10, 0.17, 1
+    padding: dp(12), dp(12)
+FloatLayout:
+    canvas.before:
+        Color:
+            rgba: 0.018, 0.035, 0.075, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgba: 0.02, 0.30, 0.48, 0.18
+        Ellipse:
+            pos: self.width * 0.36, self.height * 0.66
+            size: self.width * 0.9, self.width * 0.9
+    ScrollView:
+        do_scroll_x: False
+        bar_width: dp(3)
+        scroll_type: ['bars', 'content']
+        BoxLayout:
+            orientation: "vertical"
+            size_hint_y: None
+            height: self.minimum_height
+            padding: dp(18), dp(18), dp(18), dp(24)
+            spacing: dp(12)
+            Label:
+                text: "آوا  |  دستیار هوشمند"
+                font_size: "22sp"
+                bold: True
+                size_hint_y: None
+                height: dp(42)
+            FloatLayout:
+                size_hint_y: None
+                height: dp(184)
+                canvas.before:
+                    Color:
+                        rgba: 0.055, 0.13, 0.23, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(24)]
+                    Color:
+                        rgba: 0.06, 0.55, 0.78, 0.18
+                    Ellipse:
+                        pos: self.center_x - dp(82), self.center_y - dp(82)
+                        size: dp(164), dp(164)
+                    Color:
+                        rgba: 0.12, 0.72, 0.95, 0.28
+                    Ellipse:
+                        pos: self.center_x - dp(66), self.center_y - dp(66)
+                        size: dp(132), dp(132)
+                    Color:
+                        rgba: 0.16, 0.34, 0.58, 1
+                    Ellipse:
+                        pos: self.center_x - dp(54), self.center_y - dp(54)
+                        size: dp(108), dp(108)
+                    Color:
+                        rgba: 0.30, 0.88, 1, 0.95
+                    Ellipse:
+                        pos: self.center_x - dp(43), self.center_y - dp(43)
+                        size: dp(86), dp(86)
+                    Color:
+                        rgba: 0.08, 0.23, 0.43, 1
+                    Ellipse:
+                        pos: self.center_x - dp(37), self.center_y - dp(37)
+                        size: dp(74), dp(74)
+                Label:
+                    text: "AVA"
+                    bold: True
+                    font_size: "25sp"
+                    color: 0.82, 0.97, 1, 1
+                    pos_hint: {"center_x": 0.5, "center_y": 0.52}
+                Label:
+                    text: "همیشه آماده شنیدن"
+                    font_size: "13sp"
+                    color: 0.64, 0.84, 0.94, 1
+                    pos_hint: {"center_x": 0.5, "y": 0.04}
+                    size_hint_y: None
+                    height: dp(26)
+            TextInput:
+                id: command
+                hint_text: "فرمانت را بنویس یا با صدا بگو…"
+                multiline: False
+                size_hint_y: None
+                height: dp(52)
+                font_size: "15sp"
+                background_color: 0.055, 0.10, 0.17, 1
+            BoxLayout:
+                size_hint_y: None
+                height: dp(48)
+                spacing: dp(8)
+                Button:
+                    text: "اجرای فرمان"
+                    on_release: app.execute_command()
+                Button:
+                    text: "🎙 شنیدن"
+                    on_release: app.listen_once()
+                Button:
+                    id: wake_button
+                    text: "شنود دائمی"
+                    background_color: 0.04, 0.58, 0.52, 1
+                    on_release: app.toggle_wake_service()
+            BoxLayout:
+                size_hint_y: None
+                height: dp(48)
+                spacing: dp(8)
+                TextInput:
+                    id: target_lang
+                    text: "en"
+                    hint_text: "زبان مقصد"
+                    multiline: False
+                    size_hint_x: 0.32
+                Button:
+                    text: "ترجمه متن"
+                    on_release: app.translate_current()
+                Button:
+                    text: "ترجمه گفتار"
+                    on_release: app.listen_for_translation()
+            FloatLayout:
+                size_hint_y: None
+                height: dp(88)
+                canvas.before:
+                    Color:
+                        rgba: 0.07, 0.15, 0.25, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(18)]
+                    Color:
+                        rgba: 0.10, 0.65, 0.88, 0.22
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, dp(18))
+                        width: dp(1)
+                Label:
+                    id: status
+                    text: "آماده‌ام. برای شروع شنود، مجوز میکروفون را فعال کن."
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.width - dp(24), self.height - dp(12)
+                    padding: dp(8), dp(8)
+                    pos_hint: {"x": 0.03, "y": 0.04}
+                    size_hint: 0.94, 0.92
+                    font_size: "14sp"
+            Label:
+                id: hint
+                text: "تماس و پیامک پس از تأیید تو باز می‌شوند؛ ارسال نهایی با اقدام خودت است."
+                font_size: "12sp"
+                color: 0.56, 0.69, 0.80, 1
+                halign: "center"
+                valign: "middle"
+                text_size: self.width - dp(16), None
+                size_hint_y: None
+                height: dp(48)
 """
 
 class AvaApp(App):
