@@ -180,6 +180,22 @@ class PhoneAssistant(App):
                 self.say("برنامه پیامک باز شد؛ متن را بررسی و ارسال کن.")
             else:
                 self.say("شماره تلفن را هم بگو.")
+        elif "جستجو" in command or "سرچ" in command:
+            query = re.sub(r"^(لطفاً\\s*)?(جستجو|سرچ)(\\s+کن)?", "", command).strip()
+            if query:
+                self.open_web_search(query)
+                self.say("در حال باز کردن نتایج جست‌وجو در مرورگر...")
+            else:
+                self.say("موضوع جست‌وجو را هم بگو.")
+        elif "باز کن" in command or "وارد سایت" in command:
+            address = re.sub(r"^(لطفاً\\s*)?(باز کن|وارد سایت)(\\s+شو)?", "", command).strip()
+            if address:
+                if not re.match(r"^https?://", address, re.I):
+                    address = "https://" + address
+                self.open_url(address)
+                self.say("در حال باز کردن سایت در مرورگر...")
+            else:
+                self.say("نام سایت یا نشانی آن را بگو.")
         elif "ساعت" in command:
             self.say("ساعت " + datetime.now().strftime("%H:%M"))
         elif "ترجمه" in command:
@@ -279,6 +295,27 @@ class PhoneAssistant(App):
             request_permissions([Permission.CALL_PHONE], on_permissions)
         except Exception as exc:
             self.say("امکان برقراری تماس وجود ندارد: " + str(exc))
+
+    def open_web_search(self, query):
+        self.open_url("https://www.google.com/search?q=" + quote(query))
+
+    def open_url(self, address):
+        """Open a normal HTTP(S) website in the Android browser."""
+        if platform != "android":
+            self.say("باز کردن سایت در مرورگر گوشی اندرویدی انجام می‌شود.")
+            return
+        if not re.match(r"^https?://", address, re.I):
+            self.say("فقط نشانی‌های وب با http یا https مجاز هستند.")
+            return
+        try:
+            from jnius import autoclass
+            Intent = autoclass("android.content.Intent")
+            Uri = autoclass("android.net.Uri")
+            intent = Intent(Intent.ACTION_VIEW)
+            intent.setData(Uri.parse(address))
+            self.open_android(intent)
+        except Exception as exc:
+            self.say("باز کردن سایت ناموفق بود: " + str(exc))
 
     def open_dialer(self, number):
         if platform == "android":
