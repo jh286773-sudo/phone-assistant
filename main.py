@@ -87,7 +87,87 @@ class PhoneAssistant(App):
         self._activity_bound = False
         self._translation_listen = False
         self.pending_call_number = None
+        self._incoming_call_pending = False
+        self._call_callback = None
         return Builder.load_string(KV)
+
+    def on_start(self):
+        self.start_incoming_call_monitor()
+
+    def start_incoming_call_monitor(self):
+        if platform != "android":
+            return
+        try:
+            from jnius import autoclass, PythonJavaClass, java_method
+            from android.permissions import request_permissions
+
+            class CallCallback(PythonJavaClass):
+                __javainterfaces__ = ["org/example/phoneassistant/IncomingCallMonitor$Callback"]
+                __javacontext__ = "app"
+
+                def __init__(callback_self, app):
+                    super().__init__()
+                    callback_self.app = app
+
+                @java_method("()V")
+                def onIncomingCall(callback_self):
+                    from kivy.clock import Clock
+                    Clock.schedule_once(lambda dt: callback_self.app.ask_to_answer_call(), 0)
+
+                @java_method("()V")
+                def onCallEnded(callback_self):
+                    from kivy.clock import Clock
+                    Clock.schedule_once(lambda dt: setattr(callback_self.app, "_incoming_call_pending", False), 0)
+
+            def on_permissions(permissions, grants):
+                if not grants or not all(grants):
+                    self.say("برای تشخیص تماس ورودی، مجوز تلفن لازم است.")
+                    return
+                try:
+                    PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                    Monitor = autoclass("org.example.phoneassistant.IncomingCallMonitor")
+                    self._call_callback = CallCallback(self)
+                    Monitor.register(PythonActivity.mActivity, self._call_callback)
+                except Exception as exc:
+                    self.say("فعال‌سازی تشخیص تماس ناموفق بود: " + str(exc))
+
+            request_permissions(["android.permission.READ_PHONE_STATE"], on_permissions)
+        except Exception as exc:
+            self.say("پایش تماس ورودی فعال نشد: " + str(exc))
+
+    def ask_to_answer_call(self):
+        if self._incoming_call_pending:
+            return
+        self._incoming_call_pending = True
+        self.say("گوشی زنگ می‌خورد؛ اگر می‌خواهی پاسخ بدهم، بگو بله؛ برای هیچ اقدامی بگو نه.")
+        from kivy.clock import Clock
+        Clock.schedule_once(lambda dt: self.listen(), 1.8)
+
+    def answer_incoming_call(self):
+        if platform != "android":
+            self.say("پاسخ تماس فقط روی گوشی اندرویدی ممکن است.")
+            return
+        try:
+            from android.permissions import request_permissions
+            from jnius import autoclass
+
+            def on_permissions(permissions, grants):
+                if not grants or not all(grants):
+                    self.say("مجوز پاسخ‌دادن به تماس داده نشد.")
+                    return
+                try:
+                    PythonActivity = autoclass("org.kivy.android.PythonActivity")
+                    TelecomManager = autoclass("android.telecom.TelecomManager")
+                    telecom = PythonActivity.mActivity.getSystemService("telecom")
+                    telecom.acceptRingingCall()
+                    self._incoming_call_pending = False
+                    self.say("تماس پاسخ داده شد.")
+                except Exception as exc:
+                    self.say("پاسخ‌دادن به تماس ممکن نشد: " + str(exc))
+
+            request_permissions(["android.permission.ANSWER_PHONE_CALLS"], on_permissions)
+        except Exception as exc:
+            self.say("خطا در پاسخ‌دادن به تماس: " + str(exc))
 
     def say(self, text):
         self.root.ids.result.text = text
@@ -153,6 +233,16 @@ class PhoneAssistant(App):
         command = self.root.ids.command.text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
         if not command:
             self.say("لطفاً فرمانت را بگو یا بنویس.")
+            return
+        if self._incoming_call_pending:
+            answer = command.strip().lower()
+            if any(word in answer for word in ("بله", "آره", "تأیید", "تایید", "yes")):
+                self.answer_incoming_call()
+            elif any(word in answer for word in ("نه", "خیر", "لغو", "cancel")):
+                self._incoming_call_pending = False
+                self.say("باشه؛ به تماس دست نمی‌زنم.")
+            else:
+                self.say("متوجه نشدم؛ فقط بگو بله یا نه.")
             return
         if self.pending_call_number:
             answer = command.strip().lower()
