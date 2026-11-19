@@ -46,7 +46,7 @@ def parse_command(text):
     m = re.match(r"^(?:باز کن|وارد سایت)\s+(.+)$", command)
     if m:
         url = _url(m.group(1))
-        return {"action": "website", "value": url or ""}
+        return {"action": "website", "value": url} if url else {"action": "unsupported", "value": command}
     m = re.match(r"^(?:ترجمه کن|ترجمه)\s+(.+)$", command)
     if m:
         return {"action": "translate", "value": m.group(1).strip()}
