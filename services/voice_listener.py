@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Foreground Android speech listener. Recognition restarts after each turn."""
+"""Foreground Android speech listener; SpeechRecognizer calls run on Android main looper."""
 import socket
+import threading
 from jnius import autoclass, PythonJavaClass, java_method
 
 PythonService = autoclass("org.kivy.android.PythonService")
 service = PythonService.mService
+service.setAutoRestartService(True)
 Looper = autoclass("android.os.Looper")
 Handler = autoclass("android.os.Handler")
 Intent = autoclass("android.content.Intent")
 RecognizerIntent = autoclass("android.speech.RecognizerIntent")
 SpeechRecognizer = autoclass("android.speech.SpeechRecognizer")
 
-if Looper.myLooper() is None:
-    Looper.prepare()
-handler = Handler(Looper.myLooper())
-recognizer = SpeechRecognizer.createSpeechRecognizer(service)
+main_handler = Handler(Looper.getMainLooper())
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+recognizer = None
 
 class RestartTask(PythonJavaClass):
     __javainterfaces__ = ["java/lang/Runnable"]
@@ -23,6 +23,21 @@ class RestartTask(PythonJavaClass):
     @java_method("()V")
     def run(self):
         start_recognition()
+
+class CreateRecognizerTask(PythonJavaClass):
+    __javainterfaces__ = ["java/lang/Runnable"]
+    __javacontext__ = "app"
+    @java_method("()V")
+    def run(self):
+        global recognizer
+        try:
+            if not SpeechRecognizer.isRecognitionAvailable(service):
+                return
+            recognizer = SpeechRecognizer.createSpeechRecognizer(service)
+            recognizer.setRecognitionListener(listener)
+            start_recognition()
+        except Exception as exc:
+            print("Speech recognizer initialization failed:", exc)
 
 class Listener(PythonJavaClass):
     __javainterfaces__ = ["android/speech/RecognitionListener"]
@@ -39,7 +54,7 @@ class Listener(PythonJavaClass):
     def onEndOfSpeech(self): pass
     @java_method("(I)V")
     def onError(self, error):
-        handler.postDelayed(RestartTask(), 1500)
+        main_handler.postDelayed(RestartTask(), 1400)
     @java_method("(Landroid/os/Bundle;)V")
     def onResults(self, results):
         try:
@@ -48,26 +63,28 @@ class Listener(PythonJavaClass):
                 phrase = str(values.get(0)).strip()
                 if phrase:
                     udp.sendto(phrase.encode("utf-8"), ("127.0.0.1", 8765))
-        except Exception:
-            pass
-        handler.postDelayed(RestartTask(), 400)
+        except Exception as exc:
+            print("Speech result forwarding failed:", exc)
+        main_handler.postDelayed(RestartTask(), 400)
     @java_method("(Landroid/os/Bundle;)V")
     def onPartialResults(self, partial): pass
     @java_method("(ILandroid/os/Bundle;)V")
     def onEvent(self, eventType, params): pass
 
 listener = Listener()
-recognizer.setRecognitionListener(listener)
 
 def start_recognition():
     try:
+        if recognizer is None:
+            return
         intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         recognizer.startListening(intent)
-    except Exception:
-        handler.postDelayed(RestartTask(), 2000)
+    except Exception as exc:
+        print("Speech recognition restart failed:", exc)
+        main_handler.postDelayed(RestartTask(), 2000)
 
-start_recognition()
-Looper.loop()
+main_handler.post(CreateRecognizerTask())
+threading.Event().wait()
