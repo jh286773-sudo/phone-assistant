@@ -259,11 +259,11 @@ class PhoneAssistant(App):
         numbers = re.findall(r'(?:\+?\d[\d\s-]{7,16}\d)', command)
         if "تماس" in command or "زنگ" in command:
             if numbers:
-                number = re.sub(r"[\\s-]", "", numbers[0])
+                number = re.sub(r"[\s-]", "", numbers[0])
                 self.pending_call_number = number
                 self.say("با شماره " + number + " تماس بگیرم؟ برای تأیید بگو بله؛ برای لغو بگو نه.")
             else:
-                name = re.sub(r"^(لطفاً\\s*)?(با|به)?\\s*", "", command)
+                name = re.sub(r"^(لطفاً\s*)?(با|به)?\s*", "", command)
                 name = re.sub(r"(تماس بگیرم?|زنگ بزنم?)$", "", name).strip()
                 if name:
                     self.lookup_contact(name)
@@ -277,14 +277,14 @@ class PhoneAssistant(App):
             else:
                 self.say("شماره تلفن را هم بگو.")
         elif "جستجو" in command or "سرچ" in command:
-            query = re.sub(r"^(لطفاً\\s*)?(جستجو|سرچ)(\\s+کن)?", "", command).strip()
+            query = re.sub(r"^(لطفاً\s*)?(جستجو|سرچ)(\s+کن)?", "", command).strip()
             if query:
                 self.open_web_search(query)
                 self.say("در حال باز کردن نتایج جست‌وجو در مرورگر...")
             else:
                 self.say("موضوع جست‌وجو را هم بگو.")
         elif "باز کن" in command or "وارد سایت" in command:
-            address = re.sub(r"^(لطفاً\\s*)?(باز کن|وارد سایت)(\\s+شو)?", "", command).strip()
+            address = re.sub(r"^(لطفاً\s*)?(باز کن|وارد سایت)(\s+شو)?", "", command).strip()
             if address:
                 if not re.match(r"^https?://", address, re.I):
                     address = "https://" + address
@@ -300,7 +300,7 @@ class PhoneAssistant(App):
                 self.audit_website(target)
         elif "اسکن شبکه" in command or "بررسی شبکه" in command or "بررسی امنیت" in command:
             # Defensive scan limited to a private LAN CIDR explicitly supplied by the user.
-            match = re.search(r"(?:اسکن شبکه|بررسی شبکه|بررسی امنیت)\\s+([0-9.]+/\\d{1,2})", command)
+            match = re.search(r"(?:اسکن شبکه|بررسی شبکه|بررسی امنیت)\s+([0-9.]+/\d{1,2})", command)
             if not match:
                 self.say("برای بررسی شبکه محلی، محدوده خصوصی خودت را وارد کن؛ مثال: اسکن شبکه 192.168.1.0/24")
             else:
@@ -402,9 +402,9 @@ class PhoneAssistant(App):
     @staticmethod
     def detect_language(text):
         """Lightweight script-based language detection; avoids a native package."""
-        if re.search(r"[\\u0600-\\u06FF]", text):
-            return "fa" if re.search(r"[\\u067E\\u0686\\u0698\\u06AF]", text) or re.search(r"[\\u06A9\\u06CC]", text) else "ar"
-        if re.search(r"[\\u0400-\\u04FF]", text):
+        if re.search(r"[\u0600-\u06FF]", text):
+            return "fa" if re.search(r"[\u067E\u0686\u0698\u06AF]", text) or re.search(r"[\u06A9\u06CC]", text) else "ar"
+        if re.search(r"[\u0400-\u04FF]", text):
             return "ru"
         return "en"
 
