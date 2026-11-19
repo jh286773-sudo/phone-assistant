@@ -1,21 +1,20 @@
-# Phone Assistant
+# Ava — Persian Android Assistant
 
-دستیار اندرویدی فارسی با رابط Kivy.
+Ava is a Persian-language Android assistant. The pure command parser is isolated from Android APIs so it can be unit-tested on desktop CI.
 
-## قابلیت‌ها
-- دریافت فرمان صوتی و اجرای فرمان‌های پایه
-- ترجمه متن و گفتار با سرویس آنلاین MyMemory
-- باز کردن جست‌وجو و وب‌سایت در مرورگر
-- تماس و پیامک با تأیید کاربر پیش از اجرا
-- جست‌وجوی مخاطبین با مجوز صریح
-- بررسی محدود و غیرتهاجمی هدرهای امنیتی وب‌سایت‌های مجاز
-- شناسایی پایه دستگاه‌ها و پورت‌های رایج در شبکه خصوصی که کاربر مشخص می‌کند
+## Current implemented scope
+- Persian command normalization, including Persian and Arabic digits.
+- Search web, open validated HTTPS website URLs, navigate-back response, and device lock when Device Admin has been explicitly enabled.
+- One-shot Persian speech recognition through Android's system recognizer.
+- Voice calls are parsed but are not placed automatically in this baseline; explicit user confirmation and contact resolution must be implemented and tested before enabling.
 
-## ساخت APK
-این پروژه با Buildozer و GitHub Actions ساخته می‌شود. از بخش Actions گردش کار «Build Android APK» را اجرا کنید و پس از موفقیت، artifact با نام `phone-assistant-debug-apk` را دریافت کنید.
+## Android limitations
+- Android restricts background microphone use and background activity launches. This source version does not claim guaranteed always-on wake-word detection.
+- Locking requires the user to activate Ava as a Device Administrator in Android settings.
+- Call answering and continuous background listening vary by Android version, device manufacturer, roles, and runtime permissions.
 
-## مجوزها و محدودیت‌ها
-برخی قابلیت‌ها به مجوزهای اندروید و نسخه سیستم‌عامل وابسته‌اند. پاسخ‌گویی خودکار به تماس ممکن است در نسخه‌های جدید اندروید یا برخی سازندگان گوشی به‌دلیل محدودیت‌های سیستم‌عامل در دسترس نباشد. تماس و پیامک بدون تأیید کاربر ارسال نمی‌شوند.
+## Tests
+GitHub Actions runs Python compilation, command-parser unit tests, and Android XML validation. These checks do not replace a build or tests on a physical Android phone.
 
-## حریم خصوصی
-فرمان‌های ترجمه برای سرویس ترجمه آنلاین ارسال می‌شوند. پیش از استفاده از قابلیت‌های آنلاین، از اتصال اینترنت و سیاست حریم خصوصی سرویس مقصد آگاه باشید.
+## Build
+APK generation is intentionally not part of the source-test workflow. Build only after source checks pass and Android-specific validation is ready.
