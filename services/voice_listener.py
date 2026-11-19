@@ -16,6 +16,7 @@ SpeechRecognizer = autoclass("android.speech.SpeechRecognizer")
 main_handler = Handler(Looper.getMainLooper())
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 recognizer = None
+awaiting_command = False
 
 class RestartTask(PythonJavaClass):
     __javainterfaces__ = ["java/lang/Runnable"]
@@ -62,7 +63,17 @@ class Listener(PythonJavaClass):
             if values and values.size() > 0:
                 phrase = str(values.get(0)).strip()
                 if phrase:
-                    udp.sendto(phrase.encode("utf-8"), ("127.0.0.1", 8765))
+                    normalized = phrase.lower().replace("‌", " ").replace("ي", "ی").replace("ك", "ک")
+                    normalized = " ".join(normalized.split())
+                    wake_words = ("سلام دستیار", "دستیار", "سلام دستیاره")
+                    if not awaiting_command:
+                        if any(word in normalized for word in wake_words):
+                            awaiting_command = True
+                            udp.sendto(b"__WAKE__", ("127.0.0.1", 8765))
+                            launch_assistant()
+                    else:
+                        awaiting_command = False
+                        udp.sendto(phrase.encode("utf-8"), ("127.0.0.1", 8765))
         except Exception as exc:
             print("Speech result forwarding failed:", exc)
         main_handler.postDelayed(RestartTask(), 400)
@@ -70,6 +81,23 @@ class Listener(PythonJavaClass):
     def onPartialResults(self, partial): pass
     @java_method("(ILandroid/os/Bundle;)V")
     def onEvent(self, eventType, params): pass
+
+def launch_assistant():
+    """Try to bring the app UI forward when the wake phrase is heard."""
+    try:
+        IntentFlags = autoclass("android.content.Intent")
+        intent = service.getPackageManager().getLaunchIntentForPackage(service.getPackageName())
+        if intent is None:
+            return
+        intent.addFlags(IntentFlags.FLAG_ACTIVITY_NEW_TASK |
+                        IntentFlags.FLAG_ACTIVITY_SINGLE_TOP |
+                        IntentFlags.FLAG_ACTIVITY_CLEAR_TOP)
+        intent.putExtra("wake_word_triggered", True)
+        service.startActivity(intent)
+    except Exception as exc:
+        # Android 10+ may block background activity launches; app still receives
+        # the wake event whenever its receiver is active.
+        print("Could not open assistant UI from background:", exc)
 
 listener = Listener()
 
