@@ -28,6 +28,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Android SDK and accept licenses
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools;platforms;android-35;build-tools;35.0.0'
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -38,13 +43,17 @@ jobs:
           python3 -m pip install --user --upgrade pip
           python3 -m pip install --user 'Cython==0.29.36' buildozer
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROIDNDK=$ANDROID_HOME/ndk/$(ls "$ANDROID_HOME/ndk" | sort -V | tail -n 1)" >> "$GITHUB_ENV"
 
       - name: Verify build tools
         run: |
           command -v git
           command -v buildozer
+          command -v sdkmanager
           git --version
           buildozer --version
+          sdkmanager --list_installed
 
       - name: Build debug APK
         run: buildozer android debug
