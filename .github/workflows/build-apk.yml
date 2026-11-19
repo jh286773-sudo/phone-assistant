@@ -31,7 +31,10 @@ jobs:
       - name: Set up Android SDK and accept licenses
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0 build-tools;37.0.0'
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
 
       - name: Install system dependencies
         run: |
