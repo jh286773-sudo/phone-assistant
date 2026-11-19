@@ -7,6 +7,7 @@ on:
     paths:
       - "**.py"
       - "buildozer.spec"
+      - "android_src/**/*.java"
       - ".github/workflows/android.yml"
 
 jobs:
@@ -52,8 +53,8 @@ jobs:
             exit 1
           fi
           yes | "$SDKMANAGER" --licenses
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;37.0.0"
-          test -x "$SDK_ROOT/build-tools/37.0.0/aidl"
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          test -x "$SDK_ROOT/build-tools/35.0.0/aidl"
 
       - name: Build debug APK
         run: buildozer android debug
