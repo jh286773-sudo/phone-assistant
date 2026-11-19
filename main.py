@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import re
 import threading
+import socket
+import ipaddress
 from datetime import datetime
 from urllib.parse import quote
 
@@ -196,6 +198,13 @@ class PhoneAssistant(App):
                 self.say("در حال باز کردن سایت در مرورگر...")
             else:
                 self.say("نام سایت یا نشانی آن را بگو.")
+        elif "اسکن شبکه" in command or "بررسی شبکه" in command or "بررسی امنیت" in command:
+            # Defensive scan limited to a private LAN CIDR explicitly supplied by the user.
+            match = re.search(r"(?:اسکن شبکه|بررسی شبکه|بررسی امنیت)\\s+([0-9.]+/\\d{1,2})", command)
+            if not match:
+                self.say("برای بررسی شبکه محلی، محدوده خصوصی خودت را وارد کن؛ مثال: اسکن شبکه 192.168.1.0/24")
+            else:
+                self.scan_local_network(match.group(1))
         elif "ساعت" in command:
             self.say("ساعت " + datetime.now().strftime("%H:%M"))
         elif "ترجمه" in command:
@@ -204,6 +213,51 @@ class PhoneAssistant(App):
             self.say("سلام! آماده‌ام.")
         else:
             self.say("فرمان را دریافت کردم. برای ترجمه، متن را وارد کن و زبان مقصد را بنویس.")
+
+    def scan_local_network(self, cidr):
+        """Basic defensive TCP inventory of an explicitly supplied private LAN only."""
+        try:
+            network = ipaddress.ip_network(cidr, strict=False)
+            private_ranges = [ipaddress.ip_network("10.0.0.0/8"),
+                              ipaddress.ip_network("172.16.0.0/12"),
+                              ipaddress.ip_network("192.168.0.0/16")]
+            if not any(network.subnet_of(private_net) for private_net in private_ranges):
+                self.say("برای ایمنی فقط شبکه خصوصی محلی قابل بررسی است.")
+                return
+            if network.num_addresses > 256:
+                self.say("محدوده خیلی بزرگ است؛ حداکثر ۲۵۶ نشانی را وارد کن.")
+                return
+        except ValueError:
+            self.say("محدوده شبکه معتبر نیست. مثال: 192.168.1.0/24")
+            return
+
+        self.say("بررسی دفاعی شبکه محلی شروع شد؛ فقط چند پورت رایج بررسی می‌شوند...")
+        threading.Thread(target=self._scan_local_network, args=(network,), daemon=True).start()
+
+    def _scan_local_network(self, network):
+        common_ports = (22, 53, 80, 443, 554, 8080)
+        found = []
+        for host in network.hosts():
+            ip = str(host)
+            open_ports = []
+            for port in common_ports:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.18)
+                try:
+                    if sock.connect_ex((ip, port)) == 0:
+                        open_ports.append(port)
+                except OSError:
+                    pass
+                finally:
+                    sock.close()
+            if open_ports:
+                found.append(ip + ": " + ", ".join(str(p) for p in open_ports))
+        if found:
+            report = "دستگاه‌ها و پورت‌های پاسخ‌گو در شبکه محلی:\\n" + "\\n".join(found[:30])
+        else:
+            report = "در پورت‌های رایج بررسی‌شده، مورد بازی پیدا نشد."
+        from kivy.clock import Clock
+        Clock.schedule_once(lambda dt: self.say(report), 0)
 
     def device_language(self):
         """Return the phone's language; Persian is the desktop/test fallback."""
