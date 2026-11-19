@@ -25,6 +25,8 @@ class CommandTests(unittest.TestCase):
     def test_confirm_cancel(self):
         self.assertEqual(parse_command("بله")["action"], "yes")
         self.assertEqual(parse_command("نه")["action"], "no")
+        self.assertEqual(parse_command("پیامک به نهال بنویس سلام")["action"], "sms")
+        self.assertEqual(parse_command("به علی زنگ بزن")["action"], "call")
     def test_empty(self):
         self.assertEqual(parse_command("سلام آوا")["action"], "empty")
 
